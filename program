@@ -1,0 +1,568 @@
+// Program: StockMarket.java
+// Programmers:
+// Caroline Liu
+// Date: January 2013
+// Purpose: 
+// The program is a very basic stock market simulation. Up to four players
+// may buy and sell stock for 10 turns (which may be extended). The values
+// of each stock change randomly, most likely changing, positively or
+// negatively, by 50%. There is  aslight chance that the stock value may
+// change by 75% and an even smaller chance that the stock may double in
+// value or go completely bankrupt for the remainder of the game.
+
+// import packages
+import java.text.NumberFormat;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.Random;
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.swing.JOptionPane;
+import javax.swing.JLabel;
+import javax.swing.ImageIcon;
+
+// StockMarket Class
+public class StockMarket {
+	// Format numbers as US currency
+	public static NumberFormat money = NumberFormat.getCurrencyInstance(Locale.US);
+	// Format percentages
+	public static NumberFormat percent = NumberFormat.getPercentInstance(Locale.US);
+
+	// Define stock class
+	public static class Stock {
+		// Stock variables
+		public String companyName = "";
+		private Double value;
+		private String logoPath = "";
+		public int shares = 0;
+		public Double lastMultiplier = 1.0;
+		// Define constructor
+		public Stock(String companyName, Double value, String logoPath) {
+			this.companyName = companyName;
+			this.value = value;
+			this.logoPath = logoPath;
+		}
+	}
+
+	// Define broker class
+	public static class Broker {
+		// Broker variables
+		public String name = "";
+		public int cash = 1500;
+		public ArrayList<Stock> portfolio = StockMarket.initializeCompanies();
+
+		// Define constructor
+		public Broker(String name) {
+			this.name = name;
+		}
+
+		// Method to buy stock
+		public void buy(ArrayList<Stock> companies) {
+			boolean transactionSuccess = false;
+			while (!transactionSuccess) {
+				// The initial investment selection will be overwritten
+				String investment = "";
+				// Display the selection of companies
+				Object[] possibilities = new Object[companies.size()];
+				for (Stock company : companies) {
+					possibilities[companies.indexOf(company)] = company.companyName;
+				}
+				// Show dialog for investment
+				investment = (String)JOptionPane.showInputDialog(
+					null,
+					"In which company would you like to invest?",
+					"Stock Market Simulation",
+					JOptionPane.PLAIN_MESSAGE,
+					null,
+					possibilities,
+					possibilities[0]
+				);
+				if (investment == null || investment.isEmpty() || investment.equals("-- Go Back --")) break;
+
+				// Store the exact stock selected by the player in a variable
+				Stock selectedStock = new Stock("",0.0,"");
+				// Search their portfolio for the selected stock
+				for (Stock stock : this.portfolio) {
+					if (stock.companyName.equals(investment)) selectedStock = stock;
+				}
+
+				String sharesStr = "";
+				int shares = 0;
+				boolean validNumber = false;
+				while (!validNumber) {
+					sharesStr = JOptionPane.showInputDialog(
+						null,
+						"How many shares of " + investment + " would you like to buy?\n" +
+							"You have " + money.format(this.cash) + "\n" +
+                            investment + " stock is valued at " + money.format(selectedStock.value) + ".\n" +
+							"You can buy up to " + (int) Math.floor(this.cash/selectedStock.value) + " shares in " + selectedStock.companyName + " for " + money.format(selectedStock.value * Math.floor(this.cash/selectedStock.value)) + ".",
+						"Stock Market Simulation",
+						JOptionPane.QUESTION_MESSAGE
+					);
+					if (sharesStr != null) {
+						try {
+							shares = Integer.parseInt(sharesStr);
+							// If their current amount of cash is less than the cost of the stock
+							// they would like to buy or if it was a negative number, give an error message.
+							if (this.cash < selectedStock.value * shares) {
+								JOptionPane.showMessageDialog(
+									null,
+									"You can't buy " + shares + " shares of stock for " + money.format(selectedStock.value * shares) + "!\nYou only have " + money.format(this.cash) + "!",
+									"Stock Market Simulation",
+									JOptionPane.ERROR_MESSAGE
+								);
+							}
+							else if (shares < 0) {
+								JOptionPane.showMessageDialog(
+									null,
+									"You can't buy a negative number of shares!",
+									"Stock Market Simulation",
+									JOptionPane.ERROR_MESSAGE
+								);
+							}
+							else validNumber = true;
+						}
+						catch (NumberFormatException e) {
+							JOptionPane.showMessageDialog(
+								null,
+								"Enter a valid integer!",
+								"Stock Market Simulation",
+								JOptionPane.ERROR_MESSAGE
+							);
+						}
+					}
+					else break;
+				}
+
+				// Add the number of shares they purchased to the
+				// particular Stock object, subtract the cost of their purchase,
+				// and return false.
+				this.portfolio.get(this.portfolio.indexOf(selectedStock)).shares -= shares;
+				this.cash += selectedStock.value * shares;
+				transactionSuccess = true;
+			}
+		}
+
+		// Method to sell stock
+		public void sell(ArrayList<Stock> companies) {
+			boolean transactionSuccess = false;
+			while (!transactionSuccess) {
+				// The initial investment selection will be overwritten
+				String investment = "";
+				// Display the selection of companies
+				Object[] possibilities = new Object[companies.size()];
+				for (Stock company : companies) {
+					possibilities[companies.indexOf(company)] = company.companyName;
+				}
+				// Show dialog for investment
+				investment = (String)JOptionPane.showInputDialog(
+					null,
+					"Of which company would you like to sell stock?",
+					"Stock Market Simulation",
+					JOptionPane.PLAIN_MESSAGE,
+					null,
+					possibilities,
+					possibilities[0]
+				);
+				if (investment == null || investment.isEmpty() || investment.equals("-- Go Back --")) break;
+
+				// Store the exact stock selected by the player in a variable
+				Stock selectedStock = new Stock("",0.0,"");
+				// Search their portfolio for the selected stock
+				for (Stock stock : this.portfolio) {
+					if (stock.companyName.equals(investment)) selectedStock = stock;
+				}
+
+				String sharesStr = "";
+				int shares = 0;
+				boolean validNumber = false;
+				while (!validNumber) {
+					sharesStr = JOptionPane.showInputDialog(
+						null,
+						"How many shares of " + investment + " would you like to sell?\n" +
+							"You have " + this.portfolio.get(this.portfolio.indexOf(selectedStock)).shares + " shares in " + selectedStock.companyName + ".\n" +
+							investment + " stock is valued at " + money.format(selectedStock.value) + ".\n" +
+							"Each share sells for " + selectedStock.value + ".",
+						"Stock Market Simulation",
+						JOptionPane.QUESTION_MESSAGE
+					);
+					if (sharesStr != null) {
+						try {
+							shares = Integer.parseInt(sharesStr);
+							// If their number of stock is less than the number they entered,
+							// or if it was a negative number, give an error message.
+							if (this.portfolio.get(this.portfolio.indexOf(selectedStock)).shares < shares) {
+								JOptionPane.showMessageDialog(
+									null,
+									"You can't sell " + shares + " shares of Stock!\nYou only have " + this.portfolio.get(this.portfolio.indexOf(selectedStock)).shares + "!",
+									"Stock Market Simulation",
+									JOptionPane.ERROR_MESSAGE
+								);
+							}
+							else if (shares < 0) {
+								JOptionPane.showMessageDialog(
+									null,
+									"You can't sell a negative number of shares!",
+									"Stock Market Simulation",
+									JOptionPane.ERROR_MESSAGE
+								);
+							}
+							else validNumber = true;
+						}
+						catch (NumberFormatException e) {
+							JOptionPane.showMessageDialog(
+								null,
+								"Enter a valid integer!",
+								"Stock Market Simulation",
+								JOptionPane.ERROR_MESSAGE
+							);
+						}
+					}
+					else break;
+				}
+
+				// Add the number of shares they purchased to the
+				// particular Stock object, subtract the cost of their purchase,
+				// and return false.
+				this.portfolio.get(this.portfolio.indexOf(selectedStock)).shares += shares;
+				this.cash -= selectedStock.value * shares;
+				transactionSuccess = true;
+			}
+		}
+
+		// Method to return the value of all of the stock in a broker's portfolio
+		public Double returnStockValue() {
+			double value = 0;
+			for (Stock stock : this.portfolio) {
+				value += stock.value * stock.shares;
+			}
+			return value;
+		}
+
+		// Method to generate the display of a player's portfolio
+		public JLabel portfolioList() {
+			Double netChange = ((this.cash + this.returnStockValue())-1500);
+			// Set display of money format
+			String formattedMoney = "";
+			if (netChange >= 0) formattedMoney = money.format(netChange);
+			else formattedMoney = "<font color='red'>" + money.format(netChange) + "</font>";
+
+			String portfolioList = "<html>--- Your Portfolio ---<table><tr><th></th><th>Company:</th><th>% Change</th><th>Value</th><th>Shares</th></tr>";
+			for (Stock stock : this.portfolio) {
+				// Set display for percent changed
+				String percentChanged = "";
+				if (stock.lastMultiplier > 1) percentChanged = "<font color='green'>" + percent.format(stock.lastMultiplier - 1) + "</font>";
+				else if (stock.lastMultiplier == 1) percentChanged = percent.format(stock.lastMultiplier - 1);
+				else percentChanged = "<font color='red'>" + percent.format(stock.lastMultiplier - 1) + "</font>";
+				portfolioList += "<tr><td><img src=\"" + stock.logoPath + "\"></td><td>" + stock.companyName + ":</td><td>" + percentChanged + "</td><td>" + money.format(stock.value) + "</td><td>" + stock.shares + "</td></tr>";
+			}
+			portfolioList += "</table><table><tr><td>Net Change:<td>" + formattedMoney + "</td></tr><tr><td>Cash on Hand:<td>" + money.format(this.cash) + "</td></tr><tr><td>Value of Stock:</td><td>" + money.format(this.returnStockValue()) + "</td></table></html>";
+			return new JLabel(prepareHtmlToJLabelText(StockMarket.class,portfolioList));
+		}
+	}
+
+	// Method to confirm exiting the game
+	public static void quitConfirm() {
+		int quit = JOptionPane.showConfirmDialog(
+			null,
+			"Are you sure you want to quit?",
+			"Stock Market Simulation",
+			JOptionPane.YES_NO_OPTION
+		);
+		if (quit == JOptionPane.YES_OPTION) {
+			JOptionPane.showMessageDialog(
+				null,
+				"Thank you for investing with us!",
+				"Stock Market Simulation",
+				JOptionPane.INFORMATION_MESSAGE
+			);
+			System.exit(0);
+		}
+	}
+
+	// Method to initialize the game
+	public static ArrayList<Broker> initialize() {
+		// Declare ArrayList of Broker
+		ArrayList<Broker> brokers = new ArrayList<Broker>();
+		// Display welcome message
+		ImageIcon capitalist = new ImageIcon("capitalist.jpg");
+		JOptionPane.showMessageDialog(
+			null,
+			"Welcome to Wall Street, you soulless capitalists!\n" +
+			"This is a very basic simulation of the stock market.\n" +
+			"Your goal is to make as much money as possible over the course of ten days.",
+			"Stock Market Simulation",
+			JOptionPane.INFORMATION_MESSAGE,
+			capitalist
+		);
+
+		// Select the number of players
+		int players = 0;
+		boolean validPlayers = false;
+		while (!validPlayers) {
+			Object[] playerChoice = {"1","2","3","4"};
+			String brokerNum = (String)JOptionPane.showInputDialog(
+				null,
+				"How many brokers will be investing?",
+				"Stock Market Simulation",
+				JOptionPane.QUESTION_MESSAGE,
+				null,
+				playerChoice,
+				playerChoice[0]
+			);
+			if (brokerNum == null) StockMarket.quitConfirm();
+			else {
+				try {
+					players = Integer.parseInt(brokerNum);
+					validPlayers = true;
+				}
+				catch (NumberFormatException e) {
+					validPlayers = false;
+				}
+			}
+		}
+
+		// Enter the names of each Broker
+		for (int i = 0; i < players; i++) {
+			boolean validName = false;
+			while (!validName) {
+				String name = JOptionPane.showInputDialog(
+					null,
+					"Welcome to the stock market, player " + (i+1) + "!  What is your name?",
+					"Stock Market Simulation",
+					JOptionPane.QUESTION_MESSAGE
+				);
+				// Quit confirmation if the user exits the JOptionPane
+				if (name == null) StockMarket.quitConfirm();
+				// Catch empty input
+				else if (name.isEmpty()) {
+					JOptionPane.showMessageDialog(
+						null,
+						"You didn't enter a name!",
+						"Stock Market Simulation",
+						JOptionPane.ERROR_MESSAGE
+					);
+				}
+				// Add the name and end the loop
+				else {
+					brokers.add(new Broker(name));
+					validName = true;
+				}
+			}
+		}
+		// Return the ArrayList
+		return brokers;
+	}
+
+	// Method to initialize the companies for the game
+	public static ArrayList<Stock> initializeCompanies() {
+		// Declare ArrayList of Stock
+		ArrayList<Stock> companies = new ArrayList<Stock>();
+
+		// Generate the list of Stock
+		companies.add(new Stock("Apple",300.0,"Apple.jpg"));
+		companies.add(new Stock("Microsoft",25.0,"Microsoft.jpg"));
+		companies.add(new Stock("Google",700.0,"Google.jpg"));
+		companies.add(new Stock("Paul's Noodle Farm",5.0,"Noodle.jpg"));
+		companies.add(new Stock("Ford",15.0,"Ford.jpg"));
+		companies.add(new Stock("Disney",50.0,"Disney.jpg"));
+		companies.add(new Stock("Pepsi",100.0,"Pepsi.jpg"));
+
+		// Return the ArrayList
+		return companies;
+	}
+
+	// Method to randomly change the value of each stock
+	public static void newPrices(ArrayList<Broker> brokers, ArrayList<Stock> companies) {
+		String currentName = "";
+		// For each stock generate a random multiplier to increase or decrease it's
+		// value by 50%, then apply this change to all players.
+		for (Stock company : companies) {
+            currentName = company.companyName;
+            Double multiplier;
+            Random generator = new Random();
+            int randomInt = generator.nextInt(100) + 1;
+            if (randomInt <= 2) multiplier = 0.0;
+            else if (randomInt <= 6) multiplier = 0.25;
+            else if (randomInt <= 92) multiplier = generator.nextDouble() + 0.5;
+            else if (randomInt <= 97) multiplier = 1.75;
+            else multiplier = 2.0;
+
+			// Loop through the brokers
+			for (Broker broker : brokers) {
+				Stock currentCompany = new Stock("",0.0,"");
+				// Loop through the stock to find the particular stock to which to apply changes
+				for (Stock stock : broker.portfolio) {
+					if (stock.companyName.equals(currentName)) currentCompany = stock;
+				}
+				broker.portfolio.get(broker.portfolio.indexOf(currentCompany)).value *= multiplier;
+				broker.portfolio.get(broker.portfolio.indexOf(currentCompany)).lastMultiplier = multiplier;
+			}
+		}
+	}
+
+	// Method to generate the proper filepath for the images used in the <img /> tags of our JLabel
+	public static String prepareHtmlToJLabelText(Class<StockMarket> StockMarket, String html) {
+	    Pattern p = Pattern.compile("src=['\"](.*?)['\"]");
+	    Matcher m = p.matcher(html);
+	    while (m.find()) {
+	        html = html.replace(m.group(), "src='" + StockMarket.getResource(m.group(1)) + "'");
+	    }
+	    return html;
+	}
+
+	// Method to run one round
+	public static void runDay(ArrayList<Broker> brokers, ArrayList<Stock> companies) {
+		// Loop through each broker
+		for (Broker broker : brokers) {
+			// Confirm whose turn it is
+			JOptionPane.showMessageDialog(
+				null,
+				broker.name + ", it's your turn!",
+				"Stock Market Simulation",
+				JOptionPane.INFORMATION_MESSAGE
+			);
+
+			// Boolean repeatTurn to cycle through the action menu
+			boolean repeatTurn = true;
+			// This initial choice will be overwritten
+			int choice = JOptionPane.YES_OPTION;
+
+
+			// While the broker hasn't successfully run through his or her turn
+			while (repeatTurn) {
+				// Possible Actions
+				Object[] options = {"Buy","Sell","Pass"};
+
+				// Display the items in the broker's portfolio
+				choice = JOptionPane.showOptionDialog(
+					null,
+					broker.portfolioList(),
+					"Stock Market Simulation",
+					JOptionPane.YES_NO_CANCEL_OPTION,
+					JOptionPane.QUESTION_MESSAGE,
+					null,
+					options,
+					options[0]
+				);
+				// If the broker closes dialog, show a quit confirmation message
+				if (choice == JOptionPane.CLOSED_OPTION) {
+					StockMarket.quitConfirm();
+					repeatTurn = true;
+				}
+
+				// If the broker chooses to buy stock
+				else if (choice == 0) broker.buy(companies);
+
+				// If the broker chooses to sell stock
+				else if (choice == 1) broker.sell(companies);
+
+				// If the broker chooses to pass, continue
+				else if (choice == 2) repeatTurn = false;
+			}
+		}
+	}
+
+	public static void determineWinner(ArrayList<Broker> brokers, ArrayList<Stock> companies) {
+		ArrayList<Double> netWorth = new ArrayList<Double>();
+		String display = "";
+		for (Broker broker : brokers) {
+			JOptionPane.showMessageDialog(
+				null,
+				broker.name + ", review your final portfolio results.",
+				"Stock Market Simulation",
+				JOptionPane.INFORMATION_MESSAGE
+			);
+			JOptionPane.showMessageDialog(
+				null,
+				broker.portfolioList(),
+				"Stock Market Simulation",
+				JOptionPane.INFORMATION_MESSAGE
+			);
+			netWorth.add((broker.cash)+(broker.returnStockValue()));
+		}
+		Collections.sort(netWorth);
+		Collections.reverse(netWorth);
+
+		for (Double worth : netWorth) {
+			String brokerName = "";
+			for  (Broker broker : brokers) {
+				if (broker.cash + broker.returnStockValue() == worth) brokerName = broker.name;
+			}
+			display += ((brokerName) + "       " + (money.format(worth)) + "\n");
+		}
+
+		JOptionPane.showMessageDialog(
+			null,
+			"Congratulations on surviving the stock market!  In order by net worth, the winners are:\n" + display + "\nThanks for playing!",
+			"Stock Market Simulation",
+			JOptionPane.PLAIN_MESSAGE
+		);	
+	}
+
+    // Record first run
+    static boolean firstRun = true;
+    static int turns = 10;
+
+	// Main method
+	public static void main (String[] args) {
+		// Initialize simulation
+		ArrayList<Broker> brokers = StockMarket.initialize();
+		// Initialize companies
+		ArrayList<Stock> companies = StockMarket.initializeCompanies();
+
+		// While the players would like to continue playing
+		boolean cont = true;
+		while (cont) {
+			// Loop for 10 days
+			for (int i = 1; i <= turns; i++) {
+				JOptionPane.showMessageDialog(
+					null,
+					"It is day number " + i + " of " + turns + ".",
+					"Stock Market Simulation",
+					JOptionPane.INFORMATION_MESSAGE
+				);
+				if (i == JOptionPane.CLOSED_OPTION) StockMarket.quitConfirm();
+				StockMarket.runDay(brokers, companies);
+				StockMarket.newPrices(brokers, companies);
+
+				if (i==turns) {
+					StockMarket.determineWinner(brokers, companies);
+					int contConf = JOptionPane.showConfirmDialog(
+						null,
+						"Would you like to extend your game?",
+						"Stock Market Simulation",
+						JOptionPane.YES_NO_OPTION
+					);
+					if (contConf == JOptionPane.YES_OPTION) {
+						cont = true;
+						boolean validTurns = false;
+						while (!validTurns) {
+							String turnsStr = JOptionPane.showInputDialog(
+								null,
+								"By how many turns would you like to extend your game?",
+								"Stock Market Simulation",
+								JOptionPane.QUESTION_MESSAGE
+							);
+							try {
+								turns = Integer.parseInt(turnsStr);
+								validTurns = true;
+							}
+							catch (NumberFormatException e) {
+								JOptionPane.showMessageDialog(
+									null,
+									"Enter a valid integer number of turns!",
+									"Stock Market Simulation",
+									JOptionPane.ERROR_MESSAGE
+								);
+							}
+						}
+					}
+					else cont = false;
+				}
+			}
+		}
+        firstRun = false;
+	}
+}
